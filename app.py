@@ -4,17 +4,17 @@ import joblib
 import pandas as pd
 
 app = Flask(__name__)
-CORS(app) # Security permit
+CORS(app) # Security permit for frontend to access API
 
-# Model Load karein
-model = joblib.load('irrigation_model.pkl')
+# 1. Gradient Boosting Model Load 
+model = joblib.load('final_model_gb.pkl')
 
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
         data = request.json
         
-        # 1. Input Data
+        # Input Data ko DataFrame
         input_df = pd.DataFrame([{
             'District': data['District'],
             'Crop': data['Crop'],
@@ -23,14 +23,15 @@ def predict():
             'Motor_HP': float(data['Motor_HP'])
         }])
 
-        # 2. Prediction (Liters)
-        liters = model.predict(input_df)[0]
+        # 2. ML Model Water Requirement (Liters)
+        liters = float(model.predict(input_df)[0])
 
-        # 3. Calculation (Hours)
-        # Logic: Liters / (MotorHP * 7500) -> 7500 aik standard flow factor hai
-        hours = liters / (float(data['Motor_HP']) * 7500)
+        # 3. Irrigation Hours Calculation
+        # Logic: Liters / (MotorHP * 7500) -> 7500 standard flow factor
+        motor_hp = float(data['Motor_HP'])
+        hours = liters / (motor_hp * 7500)
 
-        # 4. Result Wapis Bhejein
+        # 4. Result JSON format
         return jsonify({
             'water_liters': round(liters, 2),
             'irrigation_hours': round(hours, 2),
@@ -38,7 +39,8 @@ def predict():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e), 'status': 'failed'})
+        # frontend error
+        return jsonify({'error': str(e), 'status': 'failed'}), 400
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)
